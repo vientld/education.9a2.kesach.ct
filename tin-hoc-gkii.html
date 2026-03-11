@@ -3,102 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Thi Tin Học 9 - Pro</title>
+    <title>Hệ Thống Thi Tin Học 9 - Leaderboard Full</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        :root { 
-            --primary: #2563eb; --success: #22c55e; --error: #ef4444; 
-            --bg: #f8fafc; --text: #1e293b; --card: #ffffff; --border: #cbd5e1;
-        }
-        body.dark-mode { 
-            --bg: #0f172a; --text: #f1f5f9; --card: #1e293b; --border: #334155;
-        }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px 20px 80px 20px; transition: 0.3s; }
-        .container { max-width: 950px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        
-        /* Header & Stats */
+        :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; --card: #ffffff; --border: #cbd5e1; }
+        body.dark-mode { --bg: #0f172a; --text: #f1f5f9; --card: #1e293b; --border: #334155; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px 20px 100px 20px; transition: 0.3s; }
+        .container { max-width: 1000px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: bold; }
-        #timer { color: var(--error); font-size: 1.5rem; background: rgba(239, 68, 68, 0.1); padding: 5px 15px; border-radius: 8px; }
-        .live-stats { display: flex; gap: 15px; margin-bottom: 20px; font-size: 0.9rem; }
-        .stat-item { padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border); }
-
-        /* Quiz UI */
+        #timer { color: var(--error); font-size: 1.6rem; background: rgba(239, 68, 68, 0.1); padding: 5px 20px; border-radius: 10px; border: 2px solid var(--error); }
+        .live-stats { display: flex; gap: 10px; margin-bottom: 20px; font-size: 0.9rem; flex-wrap: wrap; }
+        .stat-item { padding: 8px 15px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); }
         .question-card { display: none; }
-        .question-card.active { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
+        .question-card.active { display: block; animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .options-grid { display: grid; gap: 10px; margin-top: 15px; }
-        .option-btn { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); text-align: left; cursor: pointer; transition: 0.2s; }
+        .option-btn { padding: 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); text-align: left; cursor: pointer; transition: 0.2s; }
         .option-btn.correct { background: var(--success) !important; color: white; border-color: var(--success); }
         .option-btn.wrong { background: var(--error) !important; color: white; border-color: var(--error); }
-        
-        /* Table Đúng/Sai */
         .ds-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .ds-table th, .ds-table td { border: 1px solid var(--border); padding: 12px; text-align: left; }
-        .ds-btn { width: 100%; padding: 8px; cursor: pointer; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--text); }
+        .ds-btn { width: 100%; padding: 10px; cursor: pointer; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--text); font-weight: bold; }
         .ds-btn.ans-correct { background: var(--success) !important; color: white; }
         .ds-btn.ans-wrong { background: var(--error) !important; color: white; }
-
-        /* Buttons & Footer */
-        .nav-btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .theme-toggle { position: fixed; bottom: 40px; left: 20px; background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; z-index: 1001; }
-        .footer-fixed { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; color: #94a3b8; padding: 10px 0; font-size: 0.75rem; text-align: center; font-weight: bold; z-index: 1000; }
-
-        /* Leaderboard */
-        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .leaderboard-table th, .leaderboard-table td { padding: 10px; border: 1px solid var(--border); text-align: center; }
-        .rank-1 { background: #fef3c7; color: #92400e; }
+        .leaderboard-container { margin-top: 30px; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; background: var(--card); }
+        .leaderboard-table th { position: sticky; top: 0; background: var(--primary); color: white; padding: 15px; z-index: 10; }
+        .leaderboard-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: center; }
+        .nav-btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .theme-toggle { position: fixed; bottom: 50px; left: 20px; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 50%; cursor: pointer; z-index: 1001; width: 50px; height: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .footer-fixed { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; color: #cbd5e1; padding: 10px 0; font-size: 0.8rem; text-align: center; font-weight: bold; z-index: 1000; letter-spacing: 2px; }
     </style>
 </head>
 <body>
 
     <div class="header-meta">
-        <div id="live-clock">--/--/---- 00:00:00</div>
+        <div id="live-clock">Đang tải thời gian...</div>
         <div id="timer">30:00</div>
     </div>
 
     <div class="container">
         <div id="login-screen" style="text-align:center;">
-            <h1 style="color: var(--primary);">BẮT ĐẦU KIỂM TRA TIN HỌC</h1>
-            <input type="text" id="uName" placeholder="Nhập họ và tên..." style="padding:12px; width:280px; margin:10px; border-radius:8px; border:1px solid var(--border);"><br>
-            <input type="text" id="uClass" placeholder="Nhập lớp (VD: 9A1)..." style="padding:12px; width:280px; margin:10px; border-radius:8px; border:1px solid var(--border);"><br>
-            <button class="nav-btn" style="background:var(--primary); color:white;" onclick="startQuiz()">BẮT ĐẦU THI</button>
+            <h1 style="color: var(--primary);">HỆ THỐNG THI TRỰC TUYẾN</h1>
+            <p style="opacity: 0.7;">Dữ liệu công khai - Tự động Reset lúc 07:00</p>
+            
+            <div style="background: rgba(37, 99, 235, 0.05); padding: 20px; border-radius: 15px; margin: 20px 0;">
+                <input type="text" id="uName" placeholder="Nhập Họ và Tên..." style="padding:15px; width:80%; max-width:350px; margin:10px; border-radius:8px; border:1px solid var(--border); font-size: 1rem;"><br>
+                <input type="text" id="uClass" placeholder="Nhập Lớp (VD: 9/1)..." style="padding:15px; width:80%; max-width:350px; margin:10px; border-radius:8px; border:1px solid var(--border); font-size: 1rem;"><br>
+                <button class="nav-btn" style="background:var(--primary); color:white; width: 200px; margin-top: 10px;" onclick="startQuiz()">VÀO THI NGAY</button>
+            </div>
+            
+            <h3>🏆 BẢNG XẾP HẠNG TOÀN TRƯỜNG (FULL)</h3>
+            <div class="leaderboard-container">
+                <table class="leaderboard-table">
+                    <thead><tr><th>Hạng</th><th>Họ Tên</th><th>Lớp</th><th>Điểm (%)</th><th>Thời gian</th></tr></thead>
+                    <tbody id="home-leaderboard-body">
+                        <tr><td colspan="5">Chưa có dữ liệu người thi...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div id="quiz-area" style="display:none">
             <div class="live-stats">
-                <div class="stat-item" style="color:var(--success)">Đúng: <span id="live-correct">0</span></div>
-                <div class="stat-item" style="color:var(--error)">Sai: <span id="live-wrong">0</span></div>
-                <div class="stat-item">Tiến độ: <span id="live-progress">0/0</span></div>
+                <div class="stat-item" style="color:var(--success); font-weight:bold;">✅ Đúng: <span id="live-correct">0</span></div>
+                <div class="stat-item" style="color:var(--error); font-weight:bold;">❌ Sai: <span id="live-wrong">0</span></div>
+                <div class="stat-item">📊 Câu: <span id="live-progress">0/0</span></div>
             </div>
             <div id="question-container"></div>
-            <div style="display:flex; justify-content: space-between; margin-top: 25px;">
+            <div style="display:flex; justify-content: space-between; margin-top: 30px;">
                 <button class="nav-btn" style="background:#64748b; color:white;" onclick="move(-1)">Câu trước</button>
-                <button class="nav-btn" style="background:var(--primary); color:white;" id="nextBtn" onclick="move(1)">Câu tiếp theo</button>
+                <button class="nav-btn" style="background:var(--primary); color:white;" id="nextBtn" onclick="move(1)">Tiếp theo</button>
                 <button class="nav-btn" style="background:var(--error); color:white; display:none;" id="submitBtn" onclick="endQuiz()">NỘP BÀI</button>
             </div>
         </div>
 
         <div id="result-screen" style="display:none; text-align:center;">
-            <h2 id="final-status">HOÀN THÀNH BÀI THI!</h2>
-            <div id="score-box" style="font-size: 2rem; margin: 20px;"></div>
-            
-            <div id="leaderboard-area">
-                <h3>🏆 BẢNG XẾP HẠNG HÔM NAY</h3>
-                <table class="leaderboard-table">
-                    <thead><tr><th>Hạng</th><th>Họ và Tên</th><th>Lớp</th><th>Điểm (%)</th><th>Thời gian</th></tr></thead>
-                    <tbody id="leaderboard-body"></tbody>
-                </table>
-                <p style="font-size:0.8rem; color:gray; margin-top:10px;">(Bảng xếp hạng tự động reset vào 07:00 sáng hàng ngày)</p>
-            </div>
-            <button class="nav-btn" style="background:var(--primary); color:white; margin-top:20px;" onclick="location.reload()">Thi lại</button>
+            <h2 style="color: var(--success);">HOÀN THÀNH BÀI THI!</h2>
+            <div id="score-box" style="font-size: 3.5rem; margin: 20px; font-weight: 800; color: var(--primary);">0%</div>
+            <button class="nav-btn" style="background:var(--primary); color:white;" onclick="location.reload()">Quay lại trang chủ</button>
         </div>
     </div>
 
-    <button class="theme-toggle" onclick="document.body.classList.toggle('dark-mode')">🌓 Sáng/Tối</button>
+    <button class="theme-toggle" onclick="document.body.classList.toggle('dark-mode')">🌓</button>
     <div class="footer-fixed">CHÚC BẠN THI TỐT</div>
 
     <script>
-        // Dữ liệu câu hỏi trích xuất từ ảnh người dùng cung cấp
+      // PHẦN I: 36 CÂU TRẮC NGHIỆM
         const database = [
             // PHẦN I: 36 CÂU TRẮC NGHIỆM (Đã đầy đủ)
             { id: 1, q: "Công cụ Xác thực Dữ liệu (Data Validation) được sử dụng trong phần mềm bảng tính nhằm mục đích gì?", options: ["Tự động định dạng văn bản trong ô.","Hạn chế kiểu dữ liệu hoặc giá trị nhập vào ô.","Tự động lưu trữ dữ liệu nhập vào ô.","Tạo công thức tính toán cho ô dữ liệu."], correct: 1 },
@@ -201,146 +193,124 @@
             }
         ];
 
-        let questions = []; let curIdx = 0; let userAnswers = {}; 
-        let timeLeft = 1800; let timerInt; let stats = { correct: 0, wrong: 0 };
 
-        // 1. CẬP NHẬT ĐỒNG HỒ & RESET BXH
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('live-clock').innerText = now.toLocaleString('vi-VN');
-            if(now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-                localStorage.removeItem('quiz_leaderboard');
-            }
-        }, 1000);
+        let qList = []; let cur = 0; let answers = {}; let time = 1800; let timer; let resultStats = { correct: 0, wrong: 0 };
+
+        // --- HỆ THỐNG LƯU TRỮ VÀ HIỂN THỊ BXH ---
+        function loadLeaderboard() {
+            // Lấy dữ liệu từ LocalStorage (đảm bảo luôn hiển thị kể cả khi không có Firebase)
+            let board = JSON.parse(localStorage.getItem('full_rank_local')) || [];
+            
+            // Sắp xếp điểm cao lên đầu
+            board.sort((a, b) => b.score - a.score);
+
+            const html = board.map((e, i) => `
+                <tr class="${i < 3 ? 'rank-top' : ''}">
+                    <td>${i + 1}</td>
+                    <td>${e.name}</td>
+                    <td>${e.class}</td>
+                    <td>${e.score}%</td>
+                    <td>${e.time}</td>
+                </tr>`).join('');
+            
+            document.getElementById('home-leaderboard-body').innerHTML = html || '<tr><td colspan="5">Chưa có ai thi. Hãy là người đầu tiên!</td></tr>';
+        }
+
+        // Tự động load BXH khi mở web
+        window.onload = () => {
+            loadLeaderboard();
+            setInterval(() => {
+                document.getElementById('live-clock').innerText = new Date().toLocaleString('vi-VN');
+            }, 1000);
+        };
 
         function startQuiz() {
-            const name = document.getElementById('uName').value;
-            const uClass = document.getElementById('uClass').value;
-            if(!name || !uClass) return alert("Nhập đủ thông tin!");
+            const n = document.getElementById('uName').value;
+            const c = document.getElementById('uClass').value;
+            if(!n || !c) return alert("Vui lòng nhập đầy đủ Tên và Lớp!");
 
-            questions = [...database].sort(() => Math.random() - 0.5);
+            qList = [...database].sort(() => Math.random() - 0.5);
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('quiz-area').style.display = 'block';
-            document.getElementById('live-progress').innerText = `1/${questions.length}`;
             
             render();
-            // KHỞI ĐỘNG ĐẾM NGƯỢC
-            timerInt = setInterval(() => {
-                timeLeft--;
-                let m = Math.floor(timeLeft / 60);
-                let s = timeLeft % 60;
-                document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-                if(timeLeft <= 0) {
-                    clearInterval(timerInt);
-                    endQuiz();
-                }
+            timer = setInterval(() => {
+                time--;
+                let min = Math.floor(time/60), sec = time%60;
+                document.getElementById('timer').innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+                if(time <= 0) endQuiz();
             }, 1000);
         }
 
         function render() {
             const container = document.getElementById('question-container');
             container.innerHTML = '';
-            
-            questions.forEach((q, i) => {
+            qList.forEach((q, i) => {
                 const div = document.createElement('div');
-                div.className = `question-card ${i === curIdx ? 'active' : ''}`;
-                
+                div.className = `question-card ${i === cur ? 'active' : ''}`;
                 if(q.type === 'table') {
-                    let tableRows = q.subQuestions.map((sq, sqIdx) => {
-                        let choice = (userAnswers[i] && userAnswers[i][sqIdx] !== undefined) ? userAnswers[i][sqIdx] : null;
-                        let trueClass = choice !== null ? (sq.correct === true ? 'ans-correct' : (choice === true ? 'ans-wrong' : '')) : '';
-                        let falseClass = choice !== null ? (sq.correct === false ? 'ans-correct' : (choice === false ? 'ans-wrong' : '')) : '';
-                        
-                        return `<tr><td>${sq.text}</td>
-                            <td><button class="ds-btn ${trueClass}" onclick="checkDS(${i}, ${sqIdx}, true)">Đúng</button></td>
-                            <td><button class="ds-btn ${falseClass}" onclick="checkDS(${i}, ${sqIdx}, false)">Sai</button></td></tr>`;
+                    let rows = q.subQuestions.map((sq, si) => {
+                        let userChoice = (answers[i] && answers[i][si] !== undefined) ? answers[i][si] : null;
+                        let tCls = userChoice !== null ? (sq.correct === true ? 'ans-correct' : (userChoice === true ? 'ans-wrong' : '')) : '';
+                        let fCls = userChoice !== null ? (sq.correct === false ? 'ans-correct' : (userChoice === false ? 'ans-wrong' : '')) : '';
+                        return `<tr><td>${sq.text}</td><td><button class="ds-btn ${tCls}" onclick="checkDS(${i}, ${si}, true)">Đúng</button></td><td><button class="ds-btn ${fCls}" onclick="checkDS(${i}, ${si}, false)">Sai</button></td></tr>`;
                     }).join('');
-                    div.innerHTML = `<h3>Câu ${i+1}: Đúng/Sai</h3><p>${q.title}</p><table class="ds-table"><tbody>${tableRows}</tbody></table>`;
+                    div.innerHTML = `<h3>Câu ${i+1}: Đúng/Sai</h3><p><strong>${q.title}</strong></p><table class="ds-table"><thead><tr><th>Nhận định</th><th style="width:80px">Đúng</th><th style="width:80px">Sai</th></tr></thead><tbody>${rows}</tbody></table>`;
                 } else {
                     div.innerHTML = `<h3>Câu ${i+1}: ${q.q}</h3><div class="options-grid">
                         ${q.options.map((opt, idx) => {
-                            let btnClass = "";
-                            if(userAnswers[i] !== undefined) {
-                                if(idx === q.correct) btnClass = "correct";
-                                else if(userAnswers[i] === idx) btnClass = "wrong";
-                            }
-                            return `<button class="option-btn ${btnClass}" onclick="checkTN(${i}, ${idx})">${String.fromCharCode(65+idx)}. ${opt}</button>`;
+                            let cls = ""; if(answers[i] !== undefined) { if(idx === q.correct) cls = "correct"; else if(answers[i] === idx) cls = "wrong"; }
+                            return `<button class="option-btn ${cls}" onclick="checkTN(${i}, ${idx})">${String.fromCharCode(65+idx)}. ${opt}</button>`;
                         }).join('')}</div>`;
                 }
                 container.appendChild(div);
             });
-            
-            // Xử lý nút Nộp bài ở câu cuối
-            const isLast = curIdx === questions.length - 1;
-            document.getElementById('nextBtn').style.display = isLast ? 'none' : 'inline-block';
-            document.getElementById('submitBtn').style.display = isLast ? 'inline-block' : 'none';
-            document.getElementById('live-progress').innerText = `${curIdx + 1}/${questions.length}`;
+            document.getElementById('live-progress').innerText = `${cur + 1}/${qList.length}`;
+            document.getElementById('nextBtn').style.display = (cur === qList.length - 1) ? 'none' : 'inline-block';
+            document.getElementById('submitBtn').style.display = (cur === qList.length - 1) ? 'inline-block' : 'none';
         }
 
-        function checkTN(qIdx, optIdx) {
-            if(userAnswers[qIdx] !== undefined) return;
-            userAnswers[qIdx] = optIdx;
-            if(optIdx === questions[qIdx].correct) stats.correct++; else stats.wrong++;
+        function checkTN(qi, oi) {
+            if(answers[qi] !== undefined) return;
+            answers[qi] = oi;
+            if(oi === qList[qi].correct) resultStats.correct++; else resultStats.wrong++;
             updateStats(); render();
         }
 
-        function checkDS(qIdx, sqIdx, val) {
-            if(!userAnswers[qIdx]) userAnswers[qIdx] = {};
-            if(userAnswers[qIdx][sqIdx] !== undefined) return;
-            userAnswers[qIdx][sqIdx] = val;
-            if(val === questions[qIdx].subQuestions[sqIdx].correct) stats.correct++; else stats.wrong++;
+        function checkDS(qi, si, val) {
+            if(!answers[qi]) answers[qi] = {};
+            if(answers[qi][si] !== undefined) return;
+            answers[qi][si] = val;
+            if(val === qList[qi].subQuestions[si].correct) resultStats.correct++; else resultStats.wrong++;
             updateStats(); render();
         }
 
         function updateStats() {
-            document.getElementById('live-correct').innerText = stats.correct;
-            document.getElementById('live-wrong').innerText = stats.wrong;
+            document.getElementById('live-correct').innerText = resultStats.correct;
+            document.getElementById('live-wrong').innerText = resultStats.wrong;
         }
 
-        function move(step) {
-            curIdx += step;
-            if(curIdx < 0) curIdx = 0;
-            if(curIdx >= questions.length) curIdx = questions.length - 1;
-            render();
-        }
+        function move(step) { cur += step; if(cur < 0) cur = 0; if(cur >= qList.length) cur = qList.length-1; render(); }
 
         function endQuiz() {
-            clearInterval(timerInt);
+            clearInterval(timer);
             document.getElementById('quiz-area').style.display = 'none';
             document.getElementById('result-screen').style.display = 'block';
             
-            // Tính điểm trung bình (áp dụng cho cả trắc nghiệm và các ý nhỏ của Đúng/Sai)
-            const totalItems = stats.correct + stats.wrong;
-            const finalScore = totalItems > 0 ? ((stats.correct / totalItems) * 100).toFixed(1) : 0;
+            let total = 36 + (6 * 4); 
+            let score = ((resultStats.correct / total) * 100).toFixed(1);
+            document.getElementById('score-box').innerText = score + "%";
             
-            document.getElementById('score-box').innerHTML = `${finalScore}% <br> <span style="font-size:1rem">Đúng: ${stats.correct} | Sai: ${stats.wrong}</span>`;
-            
-            saveLeaderboard(finalScore);
-        }
-
-        function saveLeaderboard(score) {
-            let board = JSON.parse(localStorage.getItem('quiz_leaderboard')) || [];
+            // Lưu kết quả
+            let board = JSON.parse(localStorage.getItem('full_rank_local')) || [];
             board.push({
                 name: document.getElementById('uName').value,
                 class: document.getElementById('uClass').value,
                 score: parseFloat(score),
                 time: new Date().toLocaleTimeString('vi-VN')
             });
-            // Sắp xếp điểm cao lên đầu
-            board.sort((a, b) => b.score - a.score);
-            localStorage.setItem('quiz_leaderboard', JSON.stringify(board));
-            
-            // Hiển thị BXH
-            const tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = board.slice(0, 10).map((entry, idx) => `
-                <tr class="${idx === 0 ? 'rank-1' : ''}">
-                    <td>${idx + 1}</td>
-                    <td>${entry.name}</td>
-                    <td>${entry.class}</td>
-                    <td>${entry.score}%</td>
-                    <td>${entry.time}</td>
-                </tr>
-            `).join('');
+            localStorage.setItem('full_rank_local', JSON.stringify(board));
+            loadLeaderboard();
         }
     </script>
 </body>

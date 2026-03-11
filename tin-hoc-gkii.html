@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Thi Tin Học 9 - Pro</title>
+    <style>
+        :root { 
+            --primary: #2563eb; --success: #22c55e; --error: #ef4444; 
+            --bg: #f8fafc; --text: #1e293b; --card: #ffffff; --border: #cbd5e1;
+        }
+        body.dark-mode { 
+            --bg: #0f172a; --text: #f1f5f9; --card: #1e293b; --border: #334155;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px 20px 80px 20px; transition: 0.3s; }
+        .container { max-width: 950px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        /* Header & Stats */
+        .header-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: bold; }
+        #timer { color: var(--error); font-size: 1.5rem; background: rgba(239, 68, 68, 0.1); padding: 5px 15px; border-radius: 8px; }
+        .live-stats { display: flex; gap: 15px; margin-bottom: 20px; font-size: 0.9rem; }
+        .stat-item { padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border); }
+
+        /* Quiz UI */
+        .question-card { display: none; }
+        .question-card.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .options-grid { display: grid; gap: 10px; margin-top: 15px; }
+        .option-btn { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); text-align: left; cursor: pointer; transition: 0.2s; }
+        .option-btn.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+        .option-btn.wrong { background: var(--error) !important; color: white; border-color: var(--error); }
+        
+        /* Table Đúng/Sai */
+        .ds-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .ds-table th, .ds-table td { border: 1px solid var(--border); padding: 12px; text-align: left; }
+        .ds-btn { width: 100%; padding: 8px; cursor: pointer; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--text); }
+        .ds-btn.ans-correct { background: var(--success) !important; color: white; }
+        .ds-btn.ans-wrong { background: var(--error) !important; color: white; }
+
+        /* Buttons & Footer */
+        .nav-btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .theme-toggle { position: fixed; bottom: 40px; left: 20px; background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; z-index: 1001; }
+        .footer-fixed { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; color: #94a3b8; padding: 10px 0; font-size: 0.75rem; text-align: center; font-weight: bold; z-index: 1000; }
+
+        /* Leaderboard */
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .leaderboard-table th, .leaderboard-table td { padding: 10px; border: 1px solid var(--border); text-align: center; }
+        .rank-1 { background: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body>
+
+    <div class="header-meta">
+        <div id="live-clock">--/--/---- 00:00:00</div>
+        <div id="timer">30:00</div>
+    </div>
+
+    <div class="container">
+        <div id="login-screen" style="text-align:center;">
+            <h1 style="color: var(--primary);">BẮT ĐẦU KIỂM TRA TIN HỌC</h1>
+            <input type="text" id="uName" placeholder="Nhập họ và tên..." style="padding:12px; width:280px; margin:10px; border-radius:8px; border:1px solid var(--border);"><br>
+            <input type="text" id="uClass" placeholder="Nhập lớp (VD: 9A1)..." style="padding:12px; width:280px; margin:10px; border-radius:8px; border:1px solid var(--border);"><br>
+            <button class="nav-btn" style="background:var(--primary); color:white;" onclick="startQuiz()">BẮT ĐẦU THI</button>
+        </div>
+
+        <div id="quiz-area" style="display:none">
+            <div class="live-stats">
+                <div class="stat-item" style="color:var(--success)">Đúng: <span id="live-correct">0</span></div>
+                <div class="stat-item" style="color:var(--error)">Sai: <span id="live-wrong">0</span></div>
+                <div class="stat-item">Tiến độ: <span id="live-progress">0/0</span></div>
+            </div>
+            <div id="question-container"></div>
+            <div style="display:flex; justify-content: space-between; margin-top: 25px;">
+                <button class="nav-btn" style="background:#64748b; color:white;" onclick="move(-1)">Câu trước</button>
+                <button class="nav-btn" style="background:var(--primary); color:white;" id="nextBtn" onclick="move(1)">Câu tiếp theo</button>
+                <button class="nav-btn" style="background:var(--error); color:white; display:none;" id="submitBtn" onclick="endQuiz()">NỘP BÀI</button>
+            </div>
+        </div>
+
+        <div id="result-screen" style="display:none; text-align:center;">
+            <h2 id="final-status">HOÀN THÀNH BÀI THI!</h2>
+            <div id="score-box" style="font-size: 2rem; margin: 20px;"></div>
+            
+            <div id="leaderboard-area">
+                <h3>🏆 BẢNG XẾP HẠNG HÔM NAY</h3>
+                <table class="leaderboard-table">
+                    <thead><tr><th>Hạng</th><th>Họ và Tên</th><th>Lớp</th><th>Điểm (%)</th><th>Thời gian</th></tr></thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
+                <p style="font-size:0.8rem; color:gray; margin-top:10px;">(Bảng xếp hạng tự động reset vào 07:00 sáng hàng ngày)</p>
+            </div>
+            <button class="nav-btn" style="background:var(--primary); color:white; margin-top:20px;" onclick="location.reload()">Thi lại</button>
+        </div>
+    </div>
+
+    <button class="theme-toggle" onclick="document.body.classList.toggle('dark-mode')">🌓 Sáng/Tối</button>
+    <div class="footer-fixed">CHÚC BẠN THI TỐT</div>
+
+    <script>
+        // Dữ liệu câu hỏi trích xuất từ ảnh người dùng cung cấp
+        const database = [
+            // PHẦN I: 36 CÂU TRẮC NGHIỆM (Đã đầy đủ)
+            { id: 1, q: "Công cụ Xác thực Dữ liệu (Data Validation) được sử dụng trong phần mềm bảng tính nhằm mục đích gì?", options: ["Tự động định dạng văn bản trong ô.","Hạn chế kiểu dữ liệu hoặc giá trị nhập vào ô.","Tự động lưu trữ dữ liệu nhập vào ô.","Tạo công thức tính toán cho ô dữ liệu."], correct: 1 },
+            { id: 2, q: "Khi nào màn hình sẽ hiển thị thông báo lỗi trong Data Validation?", options: ["Khi ô không có công thức.","Khi nhập dữ liệu không đúng với điều kiện xác thực.","Khi ô trống không nhập liệu.","Khi nhập dữ liệu trùng lặp trong bảng."], correct: 1 },
+            { id: 3, q: "Để nhập thông báo nhắc nhở người dùng khi nhập dữ liệu, bạn sử dụng thẻ nào trong Data Validation?", options: ["Settings","Input Message","Error Alert","Data Tools"], correct: 1 },
+            { id: 4, q: "Khi chọn kiểu dữ liệu Decimal trong Data Validation, dữ liệu nào được chấp nhận?", options: ["Số nguyên.","Số thập phân.","Văn bản.","Danh sách."], correct: 1 },
+            { id: 5, q: "Tùy chọn Custom trong Data Validation được dùng để làm gì?", options: ["Tạo danh sách tùy chỉnh.","Xác thực dựa trên công thức tùy chỉnh.","Tự động định dạng dữ liệu.","Tính toán tự động giá trị."], correct: 1 },
+            { id: 6, q: "Trong hộp thoại Data Validation, thẻ Error Alert cho phép bạn làm gì?", options: ["Định dạng dữ liệu trong ô.","Thiết lập thông báo lỗi khi nhập sai dữ liệu.","Chọn kiểu dữ liệu nhập vào ô.","Tự động kiểm tra lỗi trong bảng tính."], correct: 1 },
+            { id: 7, q: "Dữ liệu kiểu ngày tháng được xác thực bằng tùy chọn nào?", options: ["Whole Number","Date","Decimal","Time"], correct: 1 },
+            { id: 8, q: "Khi xác thực dữ liệu kiểu List, điều gì xảy ra nếu dữ liệu nguồn thay đổi?", options: ["Danh sách sẽ tự động cập nhật.","Danh sách sẽ bị vô hiệu hóa.","Phải chỉnh sửa lại Data Validation.","Không có thay đổi nào xảy ra."], correct: 0 },
+            { id: 9, q: "Công thức nào dưới đây dùng để đếm số ô có giá trị \"A\" trong vùng A1:A10?", options: ["=COUNTIF(A1:A10,\"A\")","=COUNT(A1:A10,\"A\")","=IF(COUNTIF(A1:A10,\"A\"))","=COUNT(A1:A10)"], correct: 0 },
+            { id: 10, q: "Khi sao chép công thức =COUNTIF($B$3:$B$10,F2) từ ô G2 xuống G3, công thức sẽ thay đổi như thế nào?", options: ["Vẫn giữ nguyên vì có dấu $.","Thay đổi thành =COUNTIF(B4:B11,F3).","Chỉ thay đổi tham chiếu F2 thành F3.","Thay đổi cả tham chiếu vùng và điều kiện."], correct: 2 },
+            { id: 11, q: "Nếu công thức =COUNTIF(B3:B10,F2) không sử dụng dấu $ thì điều gì xảy ra khi sao chép xuống G3?", options: ["Kết quả đúng.","Kết quả sai do phạm vi vùng bị thay đổi.","Không ảnh hưởng vì COUNTIF tự động nhận diện vùng.","Sai cú pháp."], correct: 1 },
+            { id: 12, q: "Công thức nào sau đây dùng để đếm số ô trong vùng B3:B10 có giá trị lớn hơn 100?", options: ["=COUNTIF(B3:B10,\">100\")","=COUNTIF(B3:B10,\"100>\")","=COUNTIF(B3:B10,100)","=COUNTIF(B3:B10,\"*100*\")"], correct: 0 },
+            { id: 13, q: "Hàm COUNTIF có thể sử dụng để:", options: ["Tính tổng các giá trị trong một vùng.","Đếm số ô thỏa mãn một điều kiện.","Kiểm tra giá trị lớn nhất trong vùng.","Đếm tất cả các ô trống trong vùng."], correct: 1 },
+            { id: 14, q: "Công thức nào trả về số ô không trống trong vùng A1:A10?", options: ["=COUNTIF(A1:A10,\"<>\")","=COUNTIF(A1:A10,\"*\")","=COUNTIF(A1:A10,\" \")","=COUNT(A1:A10)"], correct: 0 },
+            { id: 15, q: "Công thức =COUNTIF(A1:A10,\"<50\") trả về:", options: ["Tổng số ô có giá trị nhỏ hơn 50.","Tổng giá trị của các ô nhỏ hơn 50.","Số ô có giá trị bằng 50.","Giá trị lớn nhất trong vùng."], correct: 0 },
+            { id: 16, q: "Trong công thức =COUNTIF(A1:A10,A2), giá trị A2 là:", options: ["Vùng dữ liệu.","Điều kiện đếm.","Kết quả cần tìm.","Hàm COUNTIF."], correct: 1 },
+            { id: 17, q: "Điều kiện nào sau đây đếm tất cả các ô chứa chữ cái \"A\"?", options: ["*A*","=\"A\"","\"A\"","\"*A*\""], correct: 3 },
+            { id: 18, q: "Điều kiện \"<>\" trong COUNTIF có nghĩa là:", options: ["Bằng rỗng.","Không rỗng.","Lớn hơn.","Nhỏ hơn."], correct: 1 },
+            { id: 19, q: "Công thức nào đếm số ô chứa giá trị số dương?", options: ["=COUNTIF(A1:A10,\">0\")","=COUNTIF(A1:A10,\"<=0\")","=COUNTIF(A1:A10,\"0\")","=COUNTIF(A1:A10,\"<0\")"], correct: 0 },
+            { id: 20, q: "Công thức COUNTIF nào trả về giá trị lỗi?", options: ["=COUNTIF(A1:A10,\">=0\")","=COUNTIF(A1:A10,\"A\")","=COUNTIF(A1:A10)","=COUNTIF(A1:A10,\"<50\")"], correct: 2 },
+            { id: 21, q: "Ký tự đại diện nào được sử dụng trong điều kiện COUNTIF?", options: ["$ và &.","* và ?.","# và @.","! và %."], correct: 1 },
+            { id: 22, q: "Công thức =COUNTIF(A1:A10,\"<>0\") trả về:", options: ["Số ô có giá trị khác 0.","Số ô có giá trị bằng 0.","Tổng giá trị khác 0.","Tổng giá trị bằng 0."], correct: 0 },
+            { id: 23, q: "Hàm SUMIF được sử dụng để làm gì?", options: ["Đếm số ô thỏa mãn điều kiện.","Tính tổng các giá trị trong một phạm vi thỏa mãn điều kiện.","Tính giá trị trung bình của các ô.","Hiển thị giá trị lớn nhất trong một phạm vi."], correct: 1 },
+            { id: 24, q: "Công thức nào đúng để tính tổng các ô trong cột D, với điều kiện ở cột B là \"Chi tiêu\"?", options: ["=SUMIF(B3:B10,\"Chi tiêu\",D3:D10)","=SUMIF(D3:D10,\"Chi tiêu\",B3:B10)","=SUMIF(\"Chi tiêu\",B3:B10,D3:D10)","=SUMIF(B3:D10,\"Chi tiêu\",D3:D10)"], correct: 0 },
+            { id: 25, q: "Khi nào cần sử dụng địa chỉ tuyệt đối trong hàm SUMIF?", options: ["Khi cần cố định phạm vi hoặc điều kiện để sao chép công thức.","Khi chỉ tính tổng một ô duy nhất.","Khi điều kiện là một biểu thức logic.","Khi sử dụng nhiều hàm SUMIF trong một công thức."], correct: 0 },
+            { id: 26, q: "Công thức =SUMIF($B$3:$B$10,\"A\",$D$3:$D$10) thực hiện điều gì?", options: ["Đếm số ô trong vùng B3:B10 có giá trị là \"A\".","Tính tổng các giá trị trong vùng D3:D10, với điều kiện ở B3:B10 là \"A\".","Tính tổng các giá trị trong vùng B3:B10 thỏa mãn điều kiện \"A\".","Tính trung bình các giá trị ở D3:D10."], correct: 1 },
+            { id: 27, q: "Hàm SUMIF trả về kết quả nào khi không có giá trị nào thỏa mãn điều kiện?", options: ["Lỗi #VALUE!.","Lỗi #N/A.","Kết quả là 0.","Kết quả không xác định."], correct: 2 },
+            { id: 28, q: "Công thức =SUMIF(B3:B10,F2,D3:D10) hoạt động thế nào?", options: ["Tính tổng các giá trị trong D3:D10 tương ứng với giá trị F2 trong B3:B10.","Tính tổng các giá trị F2 trong vùng D3:D10.","Đếm số lần F2 xuất hiện trong B3:B10.","Kiểm tra tính hợp lệ của giá trị F2."], correct: 0 },
+            { id: 29, q: "Công thức =SUMIF(B3:B10,\">500\",D3:D10) thực hiện gì?", options: ["Tính tổng các giá trị trong B3:B10 lớn hơn 500.","Tính tổng các giá trị trong D3:D10 lớn hơn 500.","Tính tổng các giá trị trong D3:D10, tương ứng với các ô trong B3:B10 có giá trị lớn hơn 500.","Đếm số ô trong B3:B10 lớn hơn 500."], correct: 2 },
+            { id: 30, q: "Hàm SUMIF có thể sử dụng nhiều điều kiện cùng lúc không?", options: ["Có, bằng cách viết nhiều điều kiện trong criteria.","Có, bằng cách dùng ký tự \"AND\" trong criteria.","Không, chỉ áp dụng một điều kiện duy nhất.","Có, nếu kết hợp với hàm SUM."], correct: 2 },
+            { id: 31, q: "Điều kiện \"<=1000\" trong hàm SUMIF được hiểu như thế nào?", options: ["Tính tổng các giá trị nhỏ hơn 1000.","Tính tổng các giá trị lớn hơn hoặc bằng 1000.","Tính tổng các giá trị nhỏ hơn hoặc bằng 1000.","Tính tổng các giá trị bằng 1000."], correct: 2 },
+            { id: 32, q: "Trong công thức =SUMIF(B3:B10,\"*thực phẩm*\",D3:D10), ký tự * có nghĩa gì?", options: ["Đại diện cho một ký tự bất kỳ.","Đại diện cho chuỗi ký tự bất kỳ.","Đại diện cho điều kiện \"thực phẩm\".","Không có ý nghĩa gì đặc biệt."], correct: 1 },
+            { id: 33, q: "Công thức nào đúng để tính tổng các giá trị trong D3:D10, với điều kiện ở cột B khác \"Giải trí\"?", options: ["=SUMIF(B3:B10,\"<>Giải trí\",D3:D10)","=SUMIF(B3:B10,\"Giải trí\",D3:D10)","=SUMIF(D3:D10,\"<>Giải trí\",B3:B10)","=SUMIF(B3:B10,NOT \"Giải trí\",D3:D10)"], correct: 0 },
+            { id: 34, q: "Công thức sử dụng đúng hàm IF để kiểm tra nếu tỉ lệ chi cho mục tiêu \"Nhu cầu thiết yếu\" lớn hơn 50% thì trả về \"Nhiều hơn\", ngược lại trả về \"Ít hơn\"?", options: ["=IF(N3<50%,\"Nhiều hơn\",\"Ít hơn\")","=IF(N3>50%,\"Nhiều hơn\",\"Ít hơn\")","=IF(N3=50%,\"Nhiều hơn\",\"Ít hơn\")","=IF(N3>50%,\"Ít hơn\",\"Nhiều hơn\")"], correct: 1 },
+            { id: 35, q: "Để kiểm tra nếu doanh thu lớn hơn 15 triệu thì tỉ lệ thưởng là 4% (0.04), công thức đúng là gì?", options: ["=IF(A1>=15,000,4%,0)","=IF(A1>15,000,\"4%\",\"0%\")","=IF(A1>15,000,0.04,0)","=IF(A1<15,000,0.04,0)"], correct: 2 },
+            { id: 36, q: "Trong công thức =IF(N4>30%,\"Nhiều hơn\",\"Ít hơn\"), nếu N4 = 25%, kết quả sẽ là gì?", options: ["Nhiều hơn","Ít hơn","Sai công thức","Không xác định"], correct: 1 },
+
+            // PHẦN II: 6 CÂU HỎI ĐÚNG SAI (BẢNG)
+            { 
+                id: "DS1", type: "table", 
+                title: "Câu 1: Một trong những công cụ hữu ích trong việc phân tích dữ liệu là hàm COUNTIF. Hàm này cho phép chúng ta đếm số lượng ô thỏa mãn một điều kiện nhất định. Dưới đây là một số nhận định về khả năng của hàm COUNTIF:",
+                subQuestions: [
+                    { text: "a) Hàm COUNTIF rất hữu ích trong việc thống kê dữ liệu bán hàng, chẳng hạn như đếm số lượng sản phẩm bán ra trong một tháng.", correct: true },
+                    { text: "b) Hàm COUNTIF chỉ có thể đếm các giá trị số, không thể đếm các giá trị văn bản.", correct: false },
+                    { text: "c) Để đếm số lượng ô có giá trị lớn hơn một số cụ thể, ta vẫn sử dụng hàm COUNTIF.", correct: true },
+                    { text: "d) Hàm COUNTIF chỉ có thể áp dụng cho một điều kiện, không thể kết hợp nhiều điều kiện.", correct: true }
+                ]
+            },
+            { 
+                id: "DS2", type: "table", 
+                title: "Câu 2: Một cửa hàng bán đồ thể thao muốn thống kê doanh số bán hàng trong tháng 12. Họ đã ghi lại thông tin về mỗi giao dịch vào một bảng tính Excel, bao gồm các cột: Ngày bán, tên sản phẩm, giá bán của sản phẩm, tên khách hàng, phương thức thanh toán. Dựa trên tình huống đó, hãy đánh giá tính đúng/sai của các nhận định sau:",
+                subQuestions: [
+                    { text: "a) Để đếm số giao dịch thanh toán bằng thẻ, ta có thể sử dụng công thức: =COUNTIF(Phương thức thanh toán, \"thẻ\").", correct: true },
+                    { text: "b) Để đếm số lượng sản phẩm giày thể thao, ta có thể sử dụng công thức: =COUNTIF(Tên sản phẩm, \"giày thể thao\").", correct: true },
+                    { text: "c) Hàm COUNTIF không thể sử dụng để đếm số lượng giao dịch trong một khoảng thời gian cụ thể.", correct: false },
+                    { text: "d) Để đếm số khách hàng trong tuần thứ 3 của tháng 12, ta chỉ cần đếm số hàng trong cột \"Khách hàng\".", correct: false }
+                ]
+            },
+            { 
+                id: "DS3", type: "table", 
+                title: "Câu 3: Gia đình Khuê muốn theo dõi chi tiêu hàng tháng của gia đình. Hậu đã lập một bảng tính Excel để ghi lại các khoản chi tiêu bao gồm: Ngày chi tiêu, Loại chi (thực phẩm, sinh hoạt, giải trí…), số tiền chi. Dựa vào tình huống trên, hãy đánh giá tính đúng của các nhận định sau:",
+                subQuestions: [
+                    { text: "a) Nếu muốn tính tổng tiền chi cho các loại chi có số tiền lớn hơn 1 triệu đồng, ta có thể điều chỉnh điều kiện thành: \">1000000\".", correct: true },
+                    { text: "b) Hàm SUMIF chỉ có thể sử dụng để tính tổng tiền chi tiêu cho một loại chi cụ thể trong một tháng.", correct: true },
+                    { text: "c) Để tạo biểu đồ thể hiện cấu trúc chi tiêu, có thể sử dụng kết quả tính toán từ hàm SUMIF.", correct: true },
+                    { text: "d) Hàm SUMIF không thể sử dụng để tìm kiếm các giao dịch có chứa từ khóa cụ thể trong cột \"Loại chi\".", correct: false }
+                ]
+            },
+            { 
+                id: "DS4", type: "table", 
+                title: "Nhóm bạn Hoa đang thực hiện một dự án giày học đường. Để quản lý chi tiêu hiệu quả, nhóm của Hoa lập một bảng tính Excel để ghi lại tất cả các khoản thu, chi phát sinh trong quá trình thực hiện dự án. Bảng tính này bao gồm: số thứ tự, ngày phát sinh giao dịch (thu hoặc chi), mục đích của giao dịch, số tiền phát sinh. Dựa vào thông tin này, hãy đánh giá các nhận định sau:",
+                subQuestions: [
+                    { text: "a) Để tính tổng chi phí cho vật liệu, ta có thể sử dụng công thức: =SUMIF(C:C,\"mua vật liệu\",D:D).", correct: true },
+                    { text: "b) Để tính tổng thu nhập từ hoạt động bán hàng, ta có thể sử dụng công thức: =SUMIF(\"Thu\",C:C,\"bán hàng\").", correct: false },
+                    { text: "c) Để tính tổng chi phí phát sinh trong tháng 9, ta chỉ cần sử dụng công thức: =SUMIF(A:A,\"*9*\",D:D).", correct: true },
+                    { text: "d) Để tính tỷ lệ phần trăm chi phí vật liệu so với tổng chi phí, ta có thể dùng: =SUMIF(C:C,\"mua vật liệu\",D:D)/SUM(D:D).", correct: true }
+                ]
+            },
+            { 
+                id: "DS5", type: "table", 
+                title: "Câu 5: Một trong những ưu điểm quan trọng của hàm IF là khả năng đưa ra quyết định logic. Hậu đã lập bảng này cho phép tạo ra các công thức linh hoạt. Dựa vào bảng, đánh giá các nhận định sau:",
+                subQuestions: [
+                    { text: "a) Hàm IF có thể lồng ghép nhiều điều kiện để tạo ra các quyết định phức tạp hơn.", correct: true },
+                    { text: "b) Hàm IF có thể kết hợp với các hàm khác để thực hiện các phép tính tổng hợp.", correct: true },
+                    { text: "c) Hàm IF chỉ có thể sử dụng để so sánh các giá trị số, không thể so sánh văn bản.", correct: false },
+                    { text: "d) Hàm IF chỉ phù hợp cho các bảng tính đơn giản, không thể áp dụng cho các bảng tính lớn và phức tạp.", correct: false }
+                ]
+            },
+            { 
+                id: "DS6", type: "table", 
+                title: "Câu 6: Trong một bộ hồ sơ về Excel, giáo viên đưa ra một tình huống thực tế: Một công ty đang nhập liệu hệ thống chấm công dựa trên nhận dạng khuôn mặt. Để mô phỏng hệ thống, họ sẽ nhập các cột như Tên, Giờ vào, Giờ ra, và một cột đánh giá. Dựa vào tình huống, hãy đánh giá tính đúng/sai:",
+                subQuestions: [
+                    { text: "a) Để đánh giá một nhân viên có mặt hay vắng mặt, ta có thể sử dụng công thức: =IF(C2>D2,\"Vắng mặt\",\"Có mặt\").", correct: true },
+                    { text: "b) Để tính số lượng nhân viên vắng mặt trong một ngày, ta có thể kết hợp hàm IF với hàm COUNTIF.", correct: true },
+                    { text: "c) Để tạo cột cảnh báo khi nhân viên đến muộn, ta có thể sử dụng hàm IF kết hợp với một giá trị giờ quy định.", correct: true },
+                    { text: "d) Hàm IF chỉ có thể sử dụng để so sánh giờ vào và giờ ra, không thể sử dụng để tính toán thời gian làm việc.", correct: false }
+                ]
+            }
+        ];
+
+        let questions = []; let curIdx = 0; let userAnswers = {}; 
+        let timeLeft = 1800; let timerInt; let stats = { correct: 0, wrong: 0 };
+
+        // 1. CẬP NHẬT ĐỒNG HỒ & RESET BXH
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleString('vi-VN');
+            if(now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+                localStorage.removeItem('quiz_leaderboard');
+            }
+        }, 1000);
+
+        function startQuiz() {
+            const name = document.getElementById('uName').value;
+            const uClass = document.getElementById('uClass').value;
+            if(!name || !uClass) return alert("Nhập đủ thông tin!");
+
+            questions = [...database].sort(() => Math.random() - 0.5);
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('quiz-area').style.display = 'block';
+            document.getElementById('live-progress').innerText = `1/${questions.length}`;
+            
+            render();
+            // KHỞI ĐỘNG ĐẾM NGƯỢC
+            timerInt = setInterval(() => {
+                timeLeft--;
+                let m = Math.floor(timeLeft / 60);
+                let s = timeLeft % 60;
+                document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                if(timeLeft <= 0) {
+                    clearInterval(timerInt);
+                    endQuiz();
+                }
+            }, 1000);
+        }
+
+        function render() {
+            const container = document.getElementById('question-container');
+            container.innerHTML = '';
+            
+            questions.forEach((q, i) => {
+                const div = document.createElement('div');
+                div.className = `question-card ${i === curIdx ? 'active' : ''}`;
+                
+                if(q.type === 'table') {
+                    let tableRows = q.subQuestions.map((sq, sqIdx) => {
+                        let choice = (userAnswers[i] && userAnswers[i][sqIdx] !== undefined) ? userAnswers[i][sqIdx] : null;
+                        let trueClass = choice !== null ? (sq.correct === true ? 'ans-correct' : (choice === true ? 'ans-wrong' : '')) : '';
+                        let falseClass = choice !== null ? (sq.correct === false ? 'ans-correct' : (choice === false ? 'ans-wrong' : '')) : '';
+                        
+                        return `<tr><td>${sq.text}</td>
+                            <td><button class="ds-btn ${trueClass}" onclick="checkDS(${i}, ${sqIdx}, true)">Đúng</button></td>
+                            <td><button class="ds-btn ${falseClass}" onclick="checkDS(${i}, ${sqIdx}, false)">Sai</button></td></tr>`;
+                    }).join('');
+                    div.innerHTML = `<h3>Câu ${i+1}: Đúng/Sai</h3><p>${q.title}</p><table class="ds-table"><tbody>${tableRows}</tbody></table>`;
+                } else {
+                    div.innerHTML = `<h3>Câu ${i+1}: ${q.q}</h3><div class="options-grid">
+                        ${q.options.map((opt, idx) => {
+                            let btnClass = "";
+                            if(userAnswers[i] !== undefined) {
+                                if(idx === q.correct) btnClass = "correct";
+                                else if(userAnswers[i] === idx) btnClass = "wrong";
+                            }
+                            return `<button class="option-btn ${btnClass}" onclick="checkTN(${i}, ${idx})">${String.fromCharCode(65+idx)}. ${opt}</button>`;
+                        }).join('')}</div>`;
+                }
+                container.appendChild(div);
+            });
+            
+            // Xử lý nút Nộp bài ở câu cuối
+            const isLast = curIdx === questions.length - 1;
+            document.getElementById('nextBtn').style.display = isLast ? 'none' : 'inline-block';
+            document.getElementById('submitBtn').style.display = isLast ? 'inline-block' : 'none';
+            document.getElementById('live-progress').innerText = `${curIdx + 1}/${questions.length}`;
+        }
+
+        function checkTN(qIdx, optIdx) {
+            if(userAnswers[qIdx] !== undefined) return;
+            userAnswers[qIdx] = optIdx;
+            if(optIdx === questions[qIdx].correct) stats.correct++; else stats.wrong++;
+            updateStats(); render();
+        }
+
+        function checkDS(qIdx, sqIdx, val) {
+            if(!userAnswers[qIdx]) userAnswers[qIdx] = {};
+            if(userAnswers[qIdx][sqIdx] !== undefined) return;
+            userAnswers[qIdx][sqIdx] = val;
+            if(val === questions[qIdx].subQuestions[sqIdx].correct) stats.correct++; else stats.wrong++;
+            updateStats(); render();
+        }
+
+        function updateStats() {
+            document.getElementById('live-correct').innerText = stats.correct;
+            document.getElementById('live-wrong').innerText = stats.wrong;
+        }
+
+        function move(step) {
+            curIdx += step;
+            if(curIdx < 0) curIdx = 0;
+            if(curIdx >= questions.length) curIdx = questions.length - 1;
+            render();
+        }
+
+        function endQuiz() {
+            clearInterval(timerInt);
+            document.getElementById('quiz-area').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            
+            // Tính điểm trung bình (áp dụng cho cả trắc nghiệm và các ý nhỏ của Đúng/Sai)
+            const totalItems = stats.correct + stats.wrong;
+            const finalScore = totalItems > 0 ? ((stats.correct / totalItems) * 100).toFixed(1) : 0;
+            
+            document.getElementById('score-box').innerHTML = `${finalScore}% <br> <span style="font-size:1rem">Đúng: ${stats.correct} | Sai: ${stats.wrong}</span>`;
+            
+            saveLeaderboard(finalScore);
+        }
+
+        function saveLeaderboard(score) {
+            let board = JSON.parse(localStorage.getItem('quiz_leaderboard')) || [];
+            board.push({
+                name: document.getElementById('uName').value,
+                class: document.getElementById('uClass').value,
+                score: parseFloat(score),
+                time: new Date().toLocaleTimeString('vi-VN')
+            });
+            // Sắp xếp điểm cao lên đầu
+            board.sort((a, b) => b.score - a.score);
+            localStorage.setItem('quiz_leaderboard', JSON.stringify(board));
+            
+            // Hiển thị BXH
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = board.slice(0, 10).map((entry, idx) => `
+                <tr class="${idx === 0 ? 'rank-1' : ''}">
+                    <td>${idx + 1}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.class}</td>
+                    <td>${entry.score}%</td>
+                    <td>${entry.time}</td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
